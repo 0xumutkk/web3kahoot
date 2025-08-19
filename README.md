@@ -43,8 +43,8 @@ A Kahoot-like quiz game built on World Chain with World ID verification, real-ti
 
 1. **Clone the repository**
 ```bash
-git clone <repository-url>
-cd kahoot-world-mini-app
+git clone https://github.com/0xumutkk/web3kahoot.git
+cd web3kahoot
 ```
 
 2. **Install dependencies**
@@ -292,6 +292,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Next.js](https://nextjs.org/) for the frontend framework
 - [Tailwind CSS](https://tailwindcss.com/) for styling
 
----
 
-**Built with ❤️ for the World Chain ecosystem**
