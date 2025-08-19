@@ -1,0 +1,45 @@
+{
+  "name": "kahoot-world-mini-app",
+  "version": "1.0.0",
+  "description": "A Kahoot-like quiz mini app built on World Chain",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:mumbai": "hardhat run scripts/deploy.ts --network mumbai",
+    "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
+    "verify": "hardhat verify"
+  },
+  "dependencies": {
+    "@worldcoin/idkit": "^0.5.0",
+    "autoprefixer": "^10.4.16",
+    "axios": "^1.6.0",
+    "ethers": "^6.8.0",
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.292.0",
+    "next": "^14.0.0",
+    "pino-pretty": "^13.1.1",
+    "postcss": "^8.4.31",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "socket.io-client": "^4.7.2",
+    "tailwindcss": "^3.3.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@types/node": "^20.8.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.51.0",
+    "eslint-config-next": "^14.0.0",
+    "hardhat": "^2.19.0",
+    "typescript": "^5.2.0"
+  }
+}
