@@ -9,61 +9,14 @@ import {
   Trophy, 
   Users, 
   ArrowRight,
-  Timer
+  Timer,
+  Image as ImageIcon,
+  Type
 } from 'lucide-react'
-
-interface Question {
-  id: number
-  question: string
-  options: string[]
-  correctAnswer: number
-  timeLimit: number
-}
-
-interface Player {
-  address: string
-  score: number
-  currentQuestion: number
-  isFinished: boolean
-}
-
-const SAMPLE_QUESTIONS: Question[] = [
-  {
-    id: 1,
-    question: "What is the capital of France?",
-    options: ["London", "Berlin", "Paris", "Madrid"],
-    correctAnswer: 2,
-    timeLimit: 30
-  },
-  {
-    id: 2,
-    question: "Which planet is known as the Red Planet?",
-    options: ["Venus", "Mars", "Jupiter", "Saturn"],
-    correctAnswer: 1,
-    timeLimit: 30
-  },
-  {
-    id: 3,
-    question: "What is 2 + 2?",
-    options: ["3", "4", "5", "6"],
-    correctAnswer: 1,
-    timeLimit: 15
-  },
-  {
-    id: 4,
-    question: "Who painted the Mona Lisa?",
-    options: ["Van Gogh", "Da Vinci", "Picasso", "Rembrandt"],
-    correctAnswer: 1,
-    timeLimit: 30
-  },
-  {
-    id: 5,
-    question: "What is the largest ocean on Earth?",
-    options: ["Atlantic", "Indian", "Arctic", "Pacific"],
-    correctAnswer: 3,
-    timeLimit: 30
-  }
-]
+import { QuizRound, Player } from '../../../types/global'
+import { getRandomQuizzes } from '../../../lib/quiz-data'
+import TextQuestion from '../../../components/TextQuestion'
+import ImageRevealQuestion from '../../../components/ImageRevealQuestion'
 
 export default function QuizPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -74,15 +27,31 @@ export default function QuizPage() {
   const [gameStarted, setGameStarted] = useState(false)
   const [gameFinished, setGameFinished] = useState(false)
   const [players, setPlayers] = useState<Player[]>([
-    { address: "0x1234...5678", score: 0, currentQuestion: 0, isFinished: false },
-    { address: "0x8765...4321", score: 0, currentQuestion: 0, isFinished: false },
-    { address: "0x1111...2222", score: 0, currentQuestion: 0, isFinished: false }
+    { address: "0x1234...5678", score: 0, currentQuestion: 0, isFinished: false, answers: [] },
+    { address: "0x8765...4321", score: 0, currentQuestion: 0, isFinished: false, answers: [] },
+    { address: "0x1111...2222", score: 0, currentQuestion: 0, isFinished: false, answers: [] }
   ])
 
-  const currentQuestion = SAMPLE_QUESTIONS[currentQuestionIndex]
+  // Get category from URL params
+  const [category, setCategory] = useState('technology')
+  const [questions, setQuestions] = useState<QuizRound[]>([])
+  
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const categoryParam = searchParams.get('category')
+    if (categoryParam) {
+      setCategory(categoryParam)
+    }
+    
+    // Get random quizzes for the category
+    const quizData = getRandomQuizzes(categoryParam || 'technology', 5)
+    setQuestions(quizData)
+  }, [])
+  
+  const currentQuestion = questions[currentQuestionIndex]
 
   useEffect(() => {
-    if (gameStarted && !gameFinished) {
+    if (gameStarted && !gameFinished && currentQuestion) {
       const timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -95,22 +64,24 @@ export default function QuizPage() {
 
       return () => clearInterval(timer)
     }
-  }, [gameStarted, gameFinished, currentQuestionIndex])
+  }, [gameStarted, gameFinished, currentQuestionIndex, currentQuestion])
 
   const startGame = () => {
-    setGameStarted(true)
-    setTimeLeft(currentQuestion.timeLimit)
+    if (currentQuestion) {
+      setGameStarted(true)
+      setTimeLeft(Math.floor(currentQuestion.durationMs / 1000))
+    }
   }
 
   const handleAnswerSelect = (answerIndex: number) => {
-    if (isAnswered) return
+    if (isAnswered || !currentQuestion) return
     
     setSelectedAnswer(answerIndex)
     setIsAnswered(true)
     
     // Calculate score based on time and correctness
     const isCorrect = answerIndex === currentQuestion.correctAnswer
-    const timeBonus = Math.floor((timeLeft / currentQuestion.timeLimit) * 100)
+    const timeBonus = Math.floor((timeLeft / (currentQuestion.durationMs / 1000)) * 100)
     const questionScore = isCorrect ? 100 + timeBonus : 0
     
     setScore(prev => prev + questionScore)
@@ -131,11 +102,14 @@ export default function QuizPage() {
   }
 
   const nextQuestion = () => {
-    if (currentQuestionIndex < SAMPLE_QUESTIONS.length - 1) {
+    if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1)
       setSelectedAnswer(null)
       setIsAnswered(false)
-      setTimeLeft(SAMPLE_QUESTIONS[currentQuestionIndex + 1].timeLimit)
+      const nextQuestion = questions[currentQuestionIndex + 1]
+      if (nextQuestion) {
+        setTimeLeft(Math.floor(nextQuestion.durationMs / 1000))
+      }
     } else {
       finishGame()
     }
@@ -144,38 +118,6 @@ export default function QuizPage() {
   const finishGame = () => {
     setGameFinished(true)
     // Here you would submit the final score to the contract
-  }
-
-  const getAnswerClass = (index: number) => {
-    if (!isAnswered) {
-      return selectedAnswer === index 
-        ? "bg-primary-100 border-primary-500" 
-        : "hover:bg-gray-50"
-    }
-    
-    if (index === currentQuestion.correctAnswer) {
-      return "bg-success-100 border-success-500"
-    }
-    
-    if (selectedAnswer === index && index !== currentQuestion.correctAnswer) {
-      return "bg-danger-100 border-danger-500"
-    }
-    
-    return "bg-gray-50"
-  }
-
-  const getAnswerIcon = (index: number) => {
-    if (!isAnswered) return null
-    
-    if (index === currentQuestion.correctAnswer) {
-      return <CheckCircle className="w-5 h-5 text-success-500" />
-    }
-    
-    if (selectedAnswer === index && index !== currentQuestion.correctAnswer) {
-      return <XCircle className="w-5 h-5 text-danger-500" />
-    }
-    
-    return null
   }
 
   if (!gameStarted) {
@@ -189,14 +131,14 @@ export default function QuizPage() {
           <Trophy className="w-16 h-16 text-secondary-500 mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-gray-800 mb-4">Quiz Starting Soon!</h1>
           <p className="text-gray-600 mb-8">
-            Get ready to answer {SAMPLE_QUESTIONS.length} questions. 
+            Get ready to answer {questions.length} questions. 
             Speed and accuracy matter for your score!
           </p>
           
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="text-center">
               <Clock className="w-8 h-8 text-primary-500 mx-auto mb-2" />
-              <p className="text-lg font-semibold">{SAMPLE_QUESTIONS.length} Questions</p>
+              <p className="text-lg font-semibold">{questions.length} Questions</p>
             </div>
             <div className="text-center">
               <Timer className="w-8 h-8 text-danger-500 mx-auto mb-2" />
@@ -234,10 +176,10 @@ export default function QuizPage() {
                 .map((player, index) => (
                   <div key={player.address} className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <span className="text-lg font-semibold">#{index + 1}</span>
-                      <span className="font-mono">{player.address}</span>
+                      <span className="text-lg font-semibold text-gray-800">#{index + 1}</span>
+                      <span className="font-mono text-gray-800">{player.address}</span>
                     </div>
-                    <span className="font-semibold">{player.score} pts</span>
+                    <span className="font-semibold text-gray-800">{player.score} pts</span>
                   </div>
                 ))}
             </div>
@@ -254,16 +196,37 @@ export default function QuizPage() {
     )
   }
 
+  if (!currentQuestion) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <p>Loading questions...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="max-w-4xl mx-auto mb-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-800">Question {currentQuestionIndex + 1}/{SAMPLE_QUESTIONS.length}</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Question {currentQuestionIndex + 1}/{questions.length}</h1>
             <div className="flex items-center space-x-2 text-danger-600">
               <Clock className="w-5 h-5" />
               <span className="font-semibold">{timeLeft}s</span>
+            </div>
+            {/* Question Type Indicator */}
+            <div className="flex items-center space-x-2 text-gray-600">
+              {currentQuestion.questionType === "IMAGE_REVEAL" ? (
+                <ImageIcon className="w-5 h-5" />
+              ) : (
+                <Type className="w-5 h-5" />
+              )}
+              <span className="text-sm font-medium capitalize">
+                {currentQuestion.questionType === "IMAGE_REVEAL" ? "Image Reveal" : "Text Question"}
+              </span>
             </div>
           </div>
           <div className="text-right">
@@ -277,7 +240,7 @@ export default function QuizPage() {
           <motion.div 
             className="bg-primary-500 h-2 rounded-full"
             initial={{ width: 0 }}
-            animate={{ width: `${((currentQuestionIndex + 1) / SAMPLE_QUESTIONS.length) * 100}%` }}
+            animate={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
             transition={{ duration: 0.5 }}
           />
         </div>
@@ -293,27 +256,26 @@ export default function QuizPage() {
             exit={{ opacity: 0, x: -20 }}
             className="card"
           >
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">
-              {currentQuestion.question}
-            </h2>
-
-            <div className="space-y-4">
-              {currentQuestion.options.map((option, index) => (
-                <motion.button
-                  key={index}
-                  onClick={() => handleAnswerSelect(index)}
-                  disabled={isAnswered}
-                  className={`w-full p-4 text-left border-2 rounded-lg transition-all duration-200 ${getAnswerClass(index)}`}
-                  whileHover={!isAnswered ? { scale: 1.02 } : {}}
-                  whileTap={!isAnswered ? { scale: 0.98 } : {}}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{option}</span>
-                    {getAnswerIcon(index)}
-                  </div>
-                </motion.button>
-              ))}
-            </div>
+            {currentQuestion.questionType === "TEXT" ? (
+              <TextQuestion
+                question={currentQuestion}
+                timeLeft={timeLeft}
+                onAnswerSelect={handleAnswerSelect}
+                isAnswered={isAnswered}
+                selectedAnswer={selectedAnswer}
+                correctAnswer={currentQuestion.correctAnswer}
+              />
+            ) : (
+              <ImageRevealQuestion
+                question={currentQuestion}
+                timeLeft={timeLeft}
+                totalTime={Math.floor(currentQuestion.durationMs / 1000)}
+                onAnswerSelect={handleAnswerSelect}
+                isAnswered={isAnswered}
+                selectedAnswer={selectedAnswer}
+                correctAnswer={currentQuestion.correctAnswer}
+              />
+            )}
 
             {isAnswered && (
               <motion.div 
@@ -325,7 +287,7 @@ export default function QuizPage() {
                   onClick={nextQuestion}
                   className="btn-primary w-full flex items-center justify-center space-x-2"
                 >
-                  <span>{currentQuestionIndex < SAMPLE_QUESTIONS.length - 1 ? 'Next Question' : 'Finish Quiz'}</span>
+                  <span>{currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}</span>
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </motion.div>
@@ -360,9 +322,9 @@ export default function QuizPage() {
                       }`}>
                         {index + 1}
                       </div>
-                      <span className="font-mono text-sm">{player.address}</span>
+                      <span className="font-mono text-sm text-gray-800">{player.address}</span>
                     </div>
-                    <span className="font-semibold">{player.score}</span>
+                    <span className="font-semibold text-gray-800">{player.score}</span>
                   </motion.div>
                 ))}
             </div>

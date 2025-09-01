@@ -1,307 +1,167 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { IDKitWidget } from '@worldcoin/idkit'
-import { ethers } from 'ethers'
 import { motion } from 'framer-motion'
-import { 
-  Trophy, 
-  Users, 
-  Clock, 
-  DollarSign, 
-  Play, 
-  Shield, 
-  Award,
-  Zap
-} from 'lucide-react'
+import Link from 'next/link'
+import { Shield, Zap, Users, Trophy, CheckCircle } from 'lucide-react'
+import { useWorldId } from '../hooks/useWorldId'
+import { WorldIdWidget } from '../components/WorldIdWidget'
 
-interface GameInfo {
-  gameId: number
-  startTime: number
-  endTime: number
-  totalPrizePool: number
-  playerCount: number
-  isActive: boolean
-  isFinished: boolean
-}
-
-export default function Home() {
-  const [isConnected, setIsConnected] = useState(false)
-  const [account, setAccount] = useState('')
-  const [currentGame, setCurrentGame] = useState<GameInfo | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    checkConnection()
-    fetchCurrentGame()
-  }, [])
-
-  const checkConnection = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' })
-        if (accounts.length > 0) {
-          setAccount(accounts[0])
-          setIsConnected(true)
-        }
-      } catch (error) {
-        console.error('Error checking connection:', error)
-      }
-    }
-  }
-
-  const connectWallet = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-        setAccount(accounts[0])
-        setIsConnected(true)
-      } catch (error) {
-        setError('Failed to connect wallet')
-      }
-    } else {
-      setError('Please install MetaMask')
-    }
-  }
-
-  const fetchCurrentGame = async () => {
-    // This would fetch from your backend/contract
-    // For demo purposes, using mock data
-    setCurrentGame({
-      gameId: 1,
-      startTime: Math.floor(Date.now() / 1000),
-      endTime: Math.floor(Date.now() / 1000) + 300,
-      totalPrizePool: 5000000, // 5 USDC
-      playerCount: 3,
-      isActive: true,
-      isFinished: false
-    })
-  }
-
-  const handleVerify = async (proof: any) => {
-    setIsLoading(true)
-    setError('')
-    
-    try {
-      // Here you would call your backend to verify the proof
-      // and then call the smart contract
-      console.log('World ID proof:', proof)
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Redirect to quiz or show success
-      window.location.href = '/quiz'
-    } catch (error) {
-      setError('Verification failed. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const skipVerification = () => {
-    setIsLoading(true)
-    setTimeout(() => {
-      window.location.href = '/quiz'
-    }, 500)
-  }
-
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleTimeString()
-  }
-
-  const formatUSDC = (amount: number) => {
-    return (amount / 1000000).toFixed(2)
-  }
+export default function HomePage() {
+  const { isVerified, verificationData, isLoading, error, handleVerificationSuccess, handleVerificationError, resetVerification } = useWorldId()
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-12"
-      >
-        <h1 className="text-5xl font-bold text-gray-800 mb-4">
-          🎯 Quiz Chain
-        </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Join the ultimate quiz experience on World Chain. Prove you're human, pay the entry fee, 
-          and compete for prizes!
-        </p>
-      </motion.div>
-
-      {/* Connection Status */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card max-w-md mx-auto mb-8"
+        transition={{ duration: 0.5 }}
+        className="max-w-4xl mx-auto"
       >
-        {!isConnected ? (
-          <div className="text-center">
-            <Shield className="w-12 h-12 text-primary-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
-            <p className="text-gray-600 mb-4">Connect your wallet to start playing</p>
-            <button onClick={connectWallet} className="btn-primary">
-              Connect Wallet
-            </button>
-          </div>
-        ) : (
-          <div className="text-center">
-            <div className="w-3 h-3 bg-success-500 rounded-full mx-auto mb-2"></div>
-            <p className="text-sm text-gray-600 mb-2">Connected</p>
-            <p className="text-xs text-gray-500 font-mono">
-              {account.slice(0, 6)}...{account.slice(-4)}
-            </p>
-          </div>
-        )}
-      </motion.div>
+        {/* Header */}
+        <div className="text-center mb-12">
+          <motion.h1 
+            className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            Quiz Chain
+          </motion.h1>
+          <motion.p 
+            className="text-xl text-gray-600 mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            Blockchain-powered quiz platform with World ID verification
+          </motion.p>
+        </div>
 
-      {/* Current Game Info */}
-      {currentGame && (
+        {/* Features Grid */}
         <motion.div 
+          className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card max-w-2xl mx-auto mb-8"
+          transition={{ delay: 0.6 }}
+        >
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <Shield className="w-12 h-12 text-blue-600 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">World ID Verified</h3>
+            <p className="text-gray-600">Proof-of-personhood verification for fair gameplay</p>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <Zap className="w-12 h-12 text-yellow-600 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Instant Rewards</h3>
+            <p className="text-gray-600">Earn tokens for correct answers and quick responses</p>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <Users className="w-12 h-12 text-green-600 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Multiplayer</h3>
+            <p className="text-gray-600">Compete with other verified players in real-time</p>
+          </div>
+          
+          <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <Trophy className="w-12 h-12 text-purple-600 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Leaderboards</h3>
+            <p className="text-gray-600">Track your progress and compete for top positions</p>
+          </div>
+        </motion.div>
+
+        {/* World ID Verification Section */}
+        <motion.div 
+          className="bg-gradient-to-r from-blue-50 to-purple-50 p-8 rounded-lg border border-blue-200 mb-8"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.8 }}
         >
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Current Game #{currentGame.gameId}</h2>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-success-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-success-600 font-medium">Active</span>
+            <div className="flex items-center space-x-3">
+              <Shield className="w-8 h-8 text-blue-600" />
+              <h2 className="text-2xl font-bold text-gray-800">World ID Verification</h2>
             </div>
+            {isVerified && (
+              <div className="flex items-center space-x-2 text-green-600">
+                <CheckCircle className="w-6 h-6" />
+                <span className="font-semibold">Verified</span>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="text-center">
-              <Trophy className="w-8 h-8 text-secondary-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-gray-800">{formatUSDC(currentGame.totalPrizePool)}</p>
-              <p className="text-sm text-gray-600">Prize Pool</p>
-            </div>
-            <div className="text-center">
-              <Users className="w-8 h-8 text-primary-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-gray-800">{currentGame.playerCount}</p>
-              <p className="text-sm text-gray-600">Players</p>
-            </div>
-            <div className="text-center">
-              <Clock className="w-8 h-8 text-danger-500 mx-auto mb-2" />
-              <p className="text-lg font-bold text-gray-800">
-                {Math.max(0, Math.floor((currentGame.endTime - Date.now() / 1000) / 60))}
-              </p>
-              <p className="text-sm text-gray-600">Minutes Left</p>
-            </div>
-            <div className="text-center">
-              <DollarSign className="w-8 h-8 text-success-500 mx-auto mb-2" />
-              <p className="text-lg font-bold text-gray-800">1.00</p>
-              <p className="text-sm text-gray-600">Entry Fee</p>
-            </div>
-          </div>
-
-          {/* Prize Distribution */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-gray-800 mb-3">Prize Distribution</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <Award className="w-5 h-5 text-yellow-500" />
-                  <span>1st Place</span>
+          {!isVerified ? (
+            <div className="space-y-4">
+              <WorldIdWidget
+                onSuccess={handleVerificationSuccess}
+                onError={handleVerificationError}
+              />
+              {isLoading && (
+                <div className="flex items-center justify-center space-x-2 text-blue-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span>Verifying with World ID...</span>
                 </div>
-                <span className="font-semibold">50%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <Award className="w-5 h-5 text-gray-400" />
-                  <span>2nd Place</span>
-                </div>
-                <span className="font-semibold">30%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <Award className="w-5 h-5 text-amber-600" />
-                  <span>3rd Place</span>
-                </div>
-                <span className="font-semibold">20%</span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* World ID Verification */}
-      {isConnected && currentGame && (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card max-w-md mx-auto"
-        >
-          <div className="text-center">
-            <Zap className="w-12 h-12 text-primary-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Verify Your Humanity</h3>
-            <p className="text-gray-600 mb-6">
-              Prove you're human using World ID to join the quiz
-            </p>
-            
-            <IDKitWidget
-              app_id={process.env.NEXT_PUBLIC_WORLD_APP_ID || "app_staging_1234567890"}
-              action="quiz_verification"
-              signal={account}
-              onSuccess={handleVerify}
-            >
-              {({ open }) => (
-                <button 
-                  onClick={open}
-                  disabled={isLoading}
-                  className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed mb-3"
-                >
-                  {isLoading ? 'Verifying...' : 'Verify with World ID'}
-                </button>
               )}
-            </IDKitWidget>
-            
-            <button 
-              onClick={skipVerification}
-              disabled={isLoading}
-              className="btn-secondary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Loading...' : 'Skip Verification (Demo)'}
-            </button>
-          </div>
+              <p className="text-sm text-gray-600">
+                World ID verification is optional but recommended for fair gameplay.
+              </p>
+              {error && (
+                <p className="text-sm text-red-600">
+                  ⚠️ {error}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="font-semibold text-green-800">Verification Successful</span>
+                </div>
+                <div className="space-y-1 text-sm text-green-700">
+                  <p><strong>Nullifier Hash:</strong> {verificationData?.nullifier_hash?.slice(0, 20)}...</p>
+                  <p><strong>Credential Type:</strong> {verificationData?.credential_type}</p>
+                  <p><strong>Status:</strong> World ID Verified</p>
+                </div>
+              </div>
+              <button
+                onClick={resetVerification}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+              >
+                Reset Verification
+              </button>
+            </div>
+          )}
         </motion.div>
-      )}
 
-      {/* Error Display */}
-      {error && (
+        {/* Action Buttons */}
         <motion.div 
+          className="flex flex-col sm:flex-row gap-4 justify-center"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card max-w-md mx-auto mt-4 border-danger-200 bg-danger-50"
+          transition={{ delay: 1.0 }}
         >
-          <p className="text-danger-600 text-center">{error}</p>
+          <Link href="/categories">
+            <button className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-semibold shadow-lg">
+              Start Playing
+            </button>
+          </Link>
+          
+          <Link href="/categories">
+            <button className="w-full sm:w-auto px-8 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold">
+              Browse Categories
+            </button>
+          </Link>
         </motion.div>
-      )}
 
-      {/* Features */}
-      <motion.div 
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mt-16 grid md:grid-cols-3 gap-8"
-      >
-        <div className="text-center">
-          <Shield className="w-12 h-12 text-primary-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">World ID Verification</h3>
-          <p className="text-gray-600">Prove you're human with zero-knowledge proofs</p>
-        </div>
-        <div className="text-center">
-          <Trophy className="w-12 h-12 text-secondary-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Real Prizes</h3>
-          <p className="text-gray-600">Win USDC prizes distributed automatically</p>
-        </div>
-        <div className="text-center">
-          <Play className="w-12 h-12 text-success-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Live Competition</h3>
-          <p className="text-gray-600">Compete in real-time with players worldwide</p>
-        </div>
+        {/* Footer Info */}
+        <motion.div 
+          className="mt-12 text-center text-gray-500 text-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2 }}
+        >
+          <p>Built on World Chain • Powered by World ID • Secure & Fair Gaming</p>
+        </motion.div>
       </motion.div>
     </div>
   )

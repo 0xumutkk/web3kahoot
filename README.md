@@ -1,295 +1,339 @@
-# 🎯 Quiz Chain - World Chain Mini App
+# Quiz Chain - World Chain Mini App
 
-A Kahoot-like quiz game built on World Chain with World ID verification, real-time competition, and automated prize distribution.
+A Kahoot-like quiz game built on World Chain with World ID verification, featuring both TEXT and IMAGE_REVEAL quiz types.
 
 ## 🌟 Features
 
-- **World ID Verification**: Prove you're human using zero-knowledge proofs
-- **Entry Fee System**: Pay 1 USDC to join each quiz
-- **Real-time Competition**: Compete with players worldwide
-- **Automated Prizes**: Smart contract automatically distributes prizes
-- **Live Leaderboard**: See rankings in real-time
-- **Time-based Scoring**: Speed and accuracy matter
-- **Secure & Transparent**: All transactions on-chain
+### Quiz Types
+- **TEXT Questions**: Traditional multiple-choice questions
+- **IMAGE_REVEAL Questions**: Blur-to-sharp reveal over time with scoring based on timing and accuracy
 
-## 🏗️ Architecture
+### Categories
+8 different categories with both quiz types:
+- Technology, Science, History, Geography, Entertainment, Sports, Business, General Culture
 
-### Smart Contract (QuizGame.sol)
-- **Entry Management**: World ID verification + USDC payment
-- **Scoring System**: Time-based scoring with signature verification
-- **Prize Distribution**: Automatic 50/30/20 split for top 3 players
-- **Platform Fees**: 10% fee for developers/DAO
+### World ID Integration
+- **Real World ID Verification**: When running inside World App
+- **Demo Mode**: When running outside World App
+- **Optional Verification**: Users can play without verification
+- **MiniKit-JS SDK**: Official World ID integration
 
-### Frontend (Next.js)
-- **World ID Integration**: Seamless verification flow
-- **Real-time UI**: Live updates with Framer Motion
-- **Wallet Integration**: MetaMask support
-- **Responsive Design**: Mobile-first approach
+### Blockchain Features
+- **Hardhat Integration**: Local Ethereum development
+- **Smart Contract**: QuizGame.sol with quiz type support
+- **MetaMask Wallet**: Connect and pay entry fees
+- **Real-time Prizes**: ETH rewards for winners
 
-### Backend (API Routes)
-- **Proof Verification**: World ID proof validation
-- **Score Signing**: Cryptographic signature generation
-- **Contract Interaction**: Smart contract calls
+### Real-time Features
+- **Socket.IO**: Real-time multiplayer communication
+- **Live Leaderboards**: Real-time scoring and rankings
+- **Game State Sync**: Synchronized game flow across players
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- MetaMask wallet
-- World ID app (for verification)
-- USDC tokens for entry fees
+- MetaMask browser extension
+- World App (for real World ID verification)
 
 ### Installation
 
-1. **Clone the repository**
+1. **Clone and install dependencies:**
 ```bash
-git clone https://github.com/0xumutkk/web3kahoot.git
-cd web3kahoot
-```
-
-2. **Install dependencies**
-```bash
+git clone <repository-url>
+cd kahoot
 npm install
 ```
 
-3. **Set up environment variables**
+2. **Set up environment variables:**
 ```bash
 cp env.example .env.local
+# Edit .env.local with your configuration
 ```
 
-Edit `.env.local` with your configuration:
+3. **Start Hardhat node:**
+```bash
+npx hardhat node
+```
+
+4. **Deploy smart contract:**
+```bash
+npm run compile
+npx hardhat run scripts/deploy.ts --network localhost
+```
+
+5. **Start the application:**
+```bash
+# Terminal 1: Next.js app
+npm run dev
+
+# Terminal 2: Socket.IO server
+npm run socket-server
+
+# Terminal 3: ngrok for public access (optional)
+ngrok http 3000
+```
+
+## 🌐 World ID Integration
+
+### Overview
+This application integrates with World ID using the official [MiniKit-JS SDK](https://docs.world.org/mini-apps/quick-start/installing) for proof-of-personhood verification.
+
+### How It Works
+
+#### Inside World App
+When the application runs inside World App:
+1. **MiniKit Detection**: Automatically detects World App environment
+2. **Real Verification**: Uses actual World ID proof-of-personhood
+3. **Zero-Knowledge Proofs**: Verifies human identity without revealing personal data
+4. **Credential Types**: Supports ORB and other credential types
+
+#### Outside World App (Demo Mode)
+When running in a regular browser:
+1. **Demo Verification**: Simulates World ID verification process
+2. **Mock Data**: Provides realistic verification data for testing
+3. **Same UI**: Maintains consistent user experience
+4. **Clear Indication**: Shows "Demo Mode" status
+
+### Implementation Details
+
+#### MiniKit Provider Setup
+```tsx
+// app/layout.tsx
+import { MiniKitProvider } from '@worldcoin/minikit-js/minikit-provider'
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <MiniKitProvider>
+        <body>{children}</body>
+      </MiniKitProvider>
+    </html>
+  )
+}
+```
+
+#### World ID Hook
+```tsx
+// hooks/useWorldId.ts
+import { MiniKit } from '@worldcoin/minikit-js'
+
+export const useWorldId = () => {
+  const [isInstalled, setIsInstalled] = useState(false)
+  
+  useEffect(() => {
+    const checkInstallation = () => {
+      const installed = MiniKit.isInstalled()
+      setIsInstalled(installed)
+    }
+    // Check periodically
+  }, [])
+  
+  // Verification logic
+}
+```
+
+#### Verification Process
+1. **Check Environment**: Detect if running in World App
+2. **Trigger Verification**: Use MiniKit commands for real verification
+3. **Handle Response**: Process verification results
+4. **Update UI**: Show verification status and data
+
+### World ID Commands
+
+#### Verify Command
+```tsx
+// Real World ID verification
+await MiniKit.commandsAsync.verify({
+  action: 'quiz_verification',
+  signal: 'user_quiz_participation'
+})
+```
+
+#### Event Handling
+```tsx
+// Subscribe to verification events
+MiniKit.subscribe('MiniAppVerify', (response) => {
+  if (response.status === 'success') {
+    // Handle successful verification
+  }
+})
+```
+
+### Configuration
+
+#### Environment Variables
 ```env
 # World ID Configuration
-NEXT_PUBLIC_WORLD_APP_ID=your_world_app_id
-NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_wallet_connect_id
-
-# Smart Contract Configuration
-CONTRACT_ADDRESS=deployed_contract_address
-WORLD_ID_CONTRACT=world_id_contract_address
-USDC_TOKEN_ADDRESS=usdc_token_address
-
-# Blockchain Configuration
-RPC_URL=your_rpc_url
-PRIVATE_KEY=your_private_key
+NEXT_PUBLIC_WORLD_ID_APP_ID=your_app_id
+NEXT_PUBLIC_WORLD_ID_ACTION=quiz_verification
+NEXT_PUBLIC_WORLD_ID_SIGNAL=user_quiz_participation
 ```
 
-4. **Deploy smart contract**
-```bash
-npx hardhat compile
-npx hardhat run scripts/deploy.ts --network mumbai
+#### Package Dependencies
+```json
+{
+  "@worldcoin/minikit-js": "^1.9.6",
+  "@worldcoin/idkit": "^0.5.1"
+}
 ```
 
-5. **Start development server**
-```bash
-npm run dev
-```
-
-Visit `http://localhost:3000` to start playing!
-
-## 🎮 How to Play
+## 🎮 Game Flow
 
 ### 1. Connect Wallet
-- Click "Connect Wallet" to connect your MetaMask
-- Ensure you have USDC tokens for entry fees
+- Connect MetaMask to Hardhat network
+- Verify wallet connection status
 
-### 2. Verify Humanity
-- Click "Verify with World ID"
-- Complete the World ID verification process
-- This proves you're human using zero-knowledge proofs
+### 2. World ID Verification (Optional)
+- **Inside World App**: Real verification with zero-knowledge proofs
+- **Outside World App**: Demo verification for testing
+- Verification is optional - users can play without it
 
-### 3. Join Quiz
-- Pay 1 USDC entry fee
-- Wait for other players to join
-- Quiz starts automatically when ready
+### 3. Select Category & Quiz Type
+- Choose from 8 categories
+- Select TEXT or IMAGE_REVEAL quiz type
+- View category details and prize pools
 
-### 4. Answer Questions
-- Answer 10-20 questions within time limits
-- Speed and accuracy determine your score
-- Watch the live leaderboard
+### 4. Pay Entry Fee
+- Pay 0.001 ETH entry fee
+- Transaction processed on Hardhat network
+- Smart contract integration
 
-### 5. Win Prizes
-- Top 3 players win USDC prizes
-- Prizes distributed automatically
-- 50% for 1st, 30% for 2nd, 20% for 3rd
+### 5. Join Game Lobby
+- Real-time player count
+- Wait for game to start
+- Chat with other players
 
-## 🔧 Technical Details
+### 6. Play Quiz
+- **TEXT**: Traditional multiple-choice questions
+- **IMAGE_REVEAL**: Blur-to-sharp reveal with timing-based scoring
+- Real-time leaderboard updates
 
-### Smart Contract Functions
+### 7. Win Prizes
+- ETH prizes distributed automatically
+- Smart contract handles payouts
+- Winner verification
 
-```solidity
-// Join a quiz game
-function enterGame(
-    uint256 gameId,
-    uint256 root,
-    uint256 nullifierHash,
-    uint256[8] calldata proof
-) external
+## 🏗️ Architecture
 
-// Submit quiz answers
-function submitAnswers(
-    uint256 gameId,
-    uint256 score,
-    uint256 finishTime,
-    bytes calldata signature
-) external
+### Frontend
+- **Next.js 14**: React framework with App Router
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first styling
+- **Framer Motion**: Smooth animations
 
-// Finish game and distribute prizes
-function finishGame(uint256 gameId) external
-```
+### Backend
+- **Socket.IO**: Real-time communication
+- **Node.js**: Server-side logic
+- **Hardhat**: Ethereum development environment
 
-### Scoring Algorithm
-```
-Score = Correct Answers × 100 + Time Bonus
-Time Bonus = (Time Remaining / Time Limit) × 100
-```
+### Smart Contract
+- **Solidity**: Smart contract language
+- **QuizGame.sol**: Main game contract
+- **Quiz Types**: Support for TEXT and IMAGE_REVEAL
+- **Prize Distribution**: Automated ETH payouts
 
-### Prize Distribution
-- **1st Place**: 50% of prize pool
-- **2nd Place**: 30% of prize pool  
-- **3rd Place**: 20% of prize pool
-- **Platform Fee**: 10% (developer/DAO)
+### World ID Integration
+- **MiniKit-JS**: Official World ID SDK
+- **Proof-of-Personhood**: Zero-knowledge verification
+- **Credential Types**: ORB and other types
+- **Demo Mode**: Fallback for testing
 
-## 🛠️ Development
+## 🔧 Development
 
 ### Project Structure
 ```
-├── app/                    # Next.js app directory
+kahoot/
+├── app/                    # Next.js App Router
 │   ├── api/               # API routes
-│   ├── quiz/              # Quiz page
-│   ├── globals.css        # Global styles
-│   ├── layout.tsx         # Root layout
-│   └── page.tsx           # Home page
-├── contracts/             # Smart contracts
-│   └── QuizGame.sol       # Main contract
-├── lib/                   # Utilities
-│   └── contract.ts        # Contract interactions
-├── hooks/                 # Custom hooks
-│   └── useWallet.ts       # Wallet management
-└── scripts/               # Deployment scripts
-    └── deploy.ts          # Contract deployment
+│   ├── categories/        # Category selection
+│   ├── lobby/            # Game lobby
+│   └── quiz/             # Quiz gameplay
+├── components/            # React components
+├── hooks/                # Custom React hooks
+├── lib/                  # Utilities and contracts
+├── server/               # Socket.IO server
+├── contracts/            # Smart contracts
+└── scripts/              # Deployment scripts
 ```
 
-### Key Components
+### Key Files
+- `hooks/useWorldId.ts`: World ID integration hook
+- `lib/contract.ts`: Smart contract interactions
+- `server/socket-server.js`: Real-time server
+- `contracts/QuizGame.sol`: Main game contract
 
-#### World ID Integration
-```typescript
-<IDKitWidget
-  app_id={process.env.NEXT_PUBLIC_WORLD_APP_ID}
-  action="quiz_verification"
-  signal={account}
-  onSuccess={handleVerify}
->
-  {({ open }) => <button onClick={open}>Verify</button>}
-</IDKitWidget>
-```
-
-#### Contract Interaction
-```typescript
-const contract = new QuizGameContract(address, signer)
-await contract.enterGame(gameId, root, nullifierHash, proof)
-```
-
-### Testing
-
+### Development Commands
 ```bash
-# Run smart contract tests
-npx hardhat test
+# Development
+npm run dev              # Start Next.js
+npm run socket-server    # Start Socket.IO server
 
-# Run frontend tests
-npm run test
+# Smart Contract
+npm run compile          # Compile contracts
+npx hardhat test         # Run tests
+npx hardhat node         # Start local node
 
-# Run e2e tests
-npm run test:e2e
+# Build & Deploy
+npm run build            # Build for production
+npm start                # Start production server
 ```
 
-## 🌐 Deployment
+## 🌍 Deployment
 
-### Smart Contract Deployment
+### Local Development
+1. Start Hardhat node
+2. Deploy smart contract
+3. Start Next.js and Socket.IO servers
+4. Use ngrok for public access
 
-1. **Compile contracts**
-```bash
-npx hardhat compile
-```
+### Production Deployment
+1. Deploy smart contract to target network
+2. Update contract addresses
+3. Deploy Next.js app
+4. Configure environment variables
 
-2. **Deploy to testnet**
-```bash
-npx hardhat run scripts/deploy.ts --network mumbai
-```
+### World App Integration
+1. Register mini app in World Developer Portal
+2. Configure World ID settings
+3. Test inside World App
+4. Submit for review
 
-3. **Deploy to mainnet**
-```bash
-npx hardhat run scripts/deploy.ts --network polygon
-```
+## 📚 Resources
 
-4. **Verify on block explorer**
-```bash
-npx hardhat verify --network polygon CONTRACT_ADDRESS WORLD_ID_ADDRESS USDC_ADDRESS
-```
+### World ID Documentation
+- [Mini Apps Quick Start](https://docs.world.org/mini-apps/quick-start/installing)
+- [World ID Commands](https://docs.world.org/mini-apps/commands/verify)
+- [MiniKit-JS SDK](https://docs.world.org/mini-apps/quick-start/installing)
 
-### Frontend Deployment
-
-1. **Build for production**
-```bash
-npm run build
-```
-
-2. **Deploy to Vercel**
-```bash
-npm run deploy
-```
-
-## 🔒 Security
-
-### Smart Contract Security
-- **Reentrancy Protection**: Using OpenZeppelin's ReentrancyGuard
-- **Access Control**: Owner-only functions for game management
-- **Input Validation**: Comprehensive parameter checks
-- **Signature Verification**: Cryptographic proof validation
-
-### Frontend Security
-- **World ID Verification**: Zero-knowledge proof validation
-- **Wallet Integration**: Secure MetaMask integration
-- **API Security**: Rate limiting and input sanitization
-
-## 📊 Analytics & Monitoring
-
-### Smart Contract Events
-```solidity
-event GameStarted(uint256 indexed gameId, uint256 startTime)
-event PlayerJoined(uint256 indexed gameId, address indexed player)
-event AnswerSubmitted(uint256 indexed gameId, address indexed player, uint256 score, uint256 finishTime)
-event GameFinished(uint256 indexed gameId, address[] winners, uint256[] prizes)
-```
-
-### Key Metrics
-- Total games played
-- Total prize pools distributed
-- Average players per game
-- World ID verification success rate
+### Technology Stack
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Socket.IO Documentation](https://socket.io/docs)
+- [Hardhat Documentation](https://hardhat.org/docs)
+- [Ethers.js Documentation](https://docs.ethers.org)
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests
+4. Test thoroughly
 5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 🆘 Support
 
-- **Documentation**: [World Chain Docs](https://docs.world.org/minikit)
-- **Discord**: Join our community
-- **Issues**: Report bugs on GitHub
+For World ID integration issues:
+- Check [World Documentation](https://docs.world.org)
+- Join [World Discord](https://discord.gg/worldcoin)
+- Review [World ID Examples](https://github.com/worldcoin/world-id-examples)
 
-## 🙏 Acknowledgments
-
-- [World Coin](https://worldcoin.org/) for World ID
-- [OpenZeppelin](https://openzeppelin.com/) for smart contract libraries
-- [Next.js](https://nextjs.org/) for the frontend framework
-- [Tailwind CSS](https://tailwindcss.com/) for styling
+For general application issues:
+- Check the documentation
+- Review the code
+- Open an issue on GitHub
 
 

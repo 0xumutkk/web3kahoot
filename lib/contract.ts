@@ -1,134 +1,229 @@
 import { ethers } from 'ethers'
+import { QuizGame__factory, QuizGame } from '../typechain-types'
 
-// QuizGame contract ABI
-export const QUIZ_GAME_ABI = [
-  'function enterGame(uint256 gameId, uint256 root, uint256 nullifierHash, uint256[8] calldata proof) external',
-  'function submitAnswers(uint256 gameId, uint256 score, uint256 finishTime, bytes calldata signature) external',
-  'function getGameInfo(uint256 gameId) external view returns (uint256 startTime, uint256 endTime, uint256 totalPrizePool, uint256 playerCount, bool isActive, bool isFinished)',
-  'function getPlayerInfo(uint256 gameId, address player) external view returns (uint256 score, uint256 finishTime, bool hasSubmitted, bool hasWithdrawn)',
-  'function getPlayerAddresses(uint256 gameId) external view returns (address[] memory)',
-  'function currentGameId() external view returns (uint256)',
-  'event GameStarted(uint256 indexed gameId, uint256 startTime)',
-  'event PlayerJoined(uint256 indexed gameId, address indexed player)',
-  'event AnswerSubmitted(uint256 indexed gameId, address indexed player, uint256 score, uint256 finishTime)',
-  'event GameFinished(uint256 indexed gameId, address[] winners, uint256[] prizes)'
-]
+// Contract addresses
+const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+const WORLD_ID_ADDRESS = '0x1234567890123456789012345678901234567890'
 
-export interface GameInfo {
-  startTime: number
-  endTime: number
-  totalPrizePool: number
-  playerCount: number
-  isActive: boolean
-  isFinished: boolean
+// Quiz types - must match the contract enum
+export enum QuizType {
+  TEXT = 0,
+  IMAGE_REVEAL = 1
 }
 
-export interface PlayerInfo {
-  score: number
-  finishTime: number
-  hasSubmitted: boolean
-  hasWithdrawn: boolean
+// Network configuration
+const NETWORK_CONFIG = {
+  chainId: 31337, // Hardhat local network
+  chainName: 'Hardhat Local',
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  rpcUrls: ['http://127.0.0.1:8545'],
 }
 
-export class QuizGameContract {
-  private contract: ethers.Contract
-  private signer: ethers.Signer
+// Contract instance
+let contract: QuizGame | null = null
+let provider: ethers.BrowserProvider | null = null
+let signer: ethers.JsonRpcSigner | null = null
 
-  constructor(contractAddress: string, signer: ethers.Signer) {
-    this.contract = new ethers.Contract(contractAddress, QUIZ_GAME_ABI, signer)
-    this.signer = signer
+// Initialize contract
+export async function initializeContract() {
+  if (typeof window.ethereum === 'undefined') {
+    throw new Error('MetaMask is not installed')
   }
 
-  async getCurrentGameId(): Promise<number> {
-    return await this.contract.currentGameId()
-  }
-
-  async getGameInfo(gameId: number): Promise<GameInfo> {
-    const [startTime, endTime, totalPrizePool, playerCount, isActive, isFinished] = 
-      await this.contract.getGameInfo(gameId)
+  try {
+    // Request account access
+    await window.ethereum.request({ method: 'eth_requestAccounts' })
     
-    return {
-      startTime: Number(startTime),
-      endTime: Number(endTime),
-      totalPrizePool: Number(totalPrizePool),
-      playerCount: Number(playerCount),
-      isActive,
-      isFinished
+    // Create provider and signer
+    provider = new ethers.BrowserProvider(window.ethereum)
+    signer = await provider.getSigner()
+    
+    // Create contract instance
+    contract = QuizGame__factory.connect(CONTRACT_ADDRESS, signer)
+    
+    // Switch to Hardhat network if needed
+    await switchToHardhatNetwork()
+    
+    return contract
+  } catch (error) {
+    console.error('Failed to initialize contract:', error)
+    throw error
+  }
+}
+
+// Switch to Hardhat network
+async function switchToHardhatNetwork() {
+  if (!provider) return
+
+  const network = await provider.getNetwork()
+  if (network.chainId !== BigInt(NETWORK_CONFIG.chainId)) {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${NETWORK_CONFIG.chainId.toString(16)}` }],
+      })
+    } catch (switchError: any) {
+      // If the network doesn't exist, add it
+      if (switchError.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [NETWORK_CONFIG],
+        })
+      } else {
+        throw switchError
+      }
     }
   }
+}
 
-  async getPlayerInfo(gameId: number, playerAddress: string): Promise<PlayerInfo> {
-    const [score, finishTime, hasSubmitted, hasWithdrawn] = 
-      await this.contract.getPlayerInfo(gameId, playerAddress)
-    
-    return {
-      score: Number(score),
-      finishTime: Number(finishTime),
-      hasSubmitted,
-      hasWithdrawn
-    }
+// Get contract instance
+export function getContract(): QuizGame {
+  if (!contract) {
+    throw new Error('Contract not initialized. Call initializeContract() first.')
   }
+  return contract
+}
 
-  async getPlayerAddresses(gameId: number): Promise<string[]> {
-    return await this.contract.getPlayerAddresses(gameId)
+// Get signer
+export function getSigner(): ethers.JsonRpcSigner {
+  if (!signer) {
+    throw new Error('Signer not initialized. Call initializeContract() first.')
   }
+  return signer
+}
 
-  async enterGame(
-    gameId: number,
-    root: string,
-    nullifierHash: string,
-    proof: number[]
-  ): Promise<ethers.ContractTransaction> {
-    return await this.contract.enterGame(gameId, root, nullifierHash, proof)
+// Get provider
+export function getProvider(): ethers.BrowserProvider {
+  if (!provider) {
+    throw new Error('Provider not initialized. Call initializeContract() first.')
   }
+  return provider
+}
 
-  async submitAnswers(
-    gameId: number,
-    score: number,
-    finishTime: number,
-    signature: string
-  ): Promise<ethers.ContractTransaction> {
-    return await this.contract.submitAnswers(gameId, score, finishTime, signature)
-  }
+// Contract functions
+export async function startNewGame(categoryId: number, quizType: QuizType) {
+  const contract = getContract()
+  const tx = await contract.startNewGame(categoryId, quizType)
+  await tx.wait()
+  return tx
+}
 
-  // Event listeners
-  onGameStarted(callback: (gameId: number, startTime: number) => void) {
-    this.contract.on('GameStarted', callback)
-  }
+export async function enterGame(
+  gameId: number,
+  preferredQuizType: QuizType,
+  root: string = '0x0',
+  nullifierHash: string = '0x0',
+  proof: number[] = [0, 0, 0, 0, 0, 0, 0, 0]
+) {
+  const contract = getContract()
+  const entryFee = ethers.parseEther('0.001') // 0.001 ETH
+  
+  const tx = await contract.enterGame(
+    gameId,
+    preferredQuizType,
+    root,
+    nullifierHash,
+    proof,
+    { value: entryFee }
+  )
+  await tx.wait()
+  return tx
+}
 
-  onPlayerJoined(callback: (gameId: number, player: string) => void) {
-    this.contract.on('PlayerJoined', callback)
-  }
+export async function submitAnswers(
+  gameId: number,
+  score: number,
+  finishTime: number,
+  signature: string
+) {
+  const contract = getContract()
+  const tx = await contract.submitAnswers(gameId, score, finishTime, signature)
+  await tx.wait()
+  return tx
+}
 
-  onAnswerSubmitted(callback: (gameId: number, player: string, score: number, finishTime: number) => void) {
-    this.contract.on('AnswerSubmitted', callback)
-  }
+export async function finishGame(gameId: number) {
+  const contract = getContract()
+  const tx = await contract.finishGame(gameId)
+  await tx.wait()
+  return tx
+}
 
-  onGameFinished(callback: (gameId: number, winners: string[], prizes: number[]) => void) {
-    this.contract.on('GameFinished', callback)
-  }
+export async function getGameInfo(gameId: number) {
+  const contract = getContract()
+  return await contract.getGameInfo(gameId)
+}
 
-  // Remove event listeners
-  removeAllListeners() {
-    this.contract.removeAllListeners()
-  }
+export async function getPlayerInfo(gameId: number, playerAddress: string) {
+  const contract = getContract()
+  return await contract.getPlayerInfo(gameId, playerAddress)
+}
+
+export async function getPlayerAddresses(gameId: number) {
+  const contract = getContract()
+  return await contract.getPlayerAddresses(gameId)
+}
+
+export async function getCategoryInfo(categoryId: number) {
+  const contract = getContract()
+  return await contract.getCategoryInfo(categoryId)
+}
+
+export async function getCategoryCount() {
+  const contract = getContract()
+  return await contract.getCategoryCount()
 }
 
 // Utility functions
-export function formatUSDC(amount: number): string {
-  return (amount / 1000000).toFixed(2)
+export function formatEther(wei: bigint): string {
+  return ethers.formatEther(wei)
 }
 
-export function formatTime(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleTimeString()
+export function parseEther(ether: string): bigint {
+  return ethers.parseEther(ether)
 }
 
-export function calculateTimeLeft(endTime: number): number {
-  return Math.max(0, Math.floor((endTime - Date.now() / 1000) / 60))
+// Get current account
+export async function getCurrentAccount(): Promise<string> {
+  const signer = getSigner()
+  return await signer.getAddress()
 }
 
-export function calculateScore(correctAnswers: number, totalTime: number, timeLimit: number): number {
-  const baseScore = correctAnswers * 100
-  const timeBonus = Math.floor((totalTime / timeLimit) * 50)
-  return baseScore + timeBonus
+// Get account balance
+export async function getAccountBalance(address?: string): Promise<string> {
+  const provider = getProvider()
+  const targetAddress = address || await getCurrentAccount()
+  const balance = await provider.getBalance(targetAddress)
+  return formatEther(balance)
+}
+
+// Event listeners (simplified for now)
+export function onGameStarted(callback: (gameId: number, startTime: number, quizType: QuizType) => void) {
+  // TODO: Implement proper event listening
+  console.log('GameStarted event listener registered')
+}
+
+export function onPlayerJoined(callback: (gameId: number, player: string, preferredQuizType: QuizType) => void) {
+  // TODO: Implement proper event listening
+  console.log('PlayerJoined event listener registered')
+}
+
+export function onAnswerSubmitted(callback: (gameId: number, player: string, score: number, finishTime: number) => void) {
+  // TODO: Implement proper event listening
+  console.log('AnswerSubmitted event listener registered')
+}
+
+export function onGameFinished(callback: (gameId: number, winners: string[], prizes: bigint[]) => void) {
+  // TODO: Implement proper event listening
+  console.log('GameFinished event listener registered')
+}
+
+// Remove event listeners
+export function removeAllListeners() {
+  // TODO: Implement proper event listener removal
+  console.log('All event listeners removed')
 }

@@ -1,38 +1,32 @@
+// @ts-ignore
 import pkg from 'hardhat';
 const { ethers } = pkg;
 
 async function main() {
   console.log("Deploying QuizGame contract...");
 
-  // Get the contract factory
+  // Get the QuizGame contract factory
   const QuizGame = await ethers.getContractFactory("QuizGame");
 
   // World ID contract addresses (these would be different for each network)
   const worldIdAddress = process.env.WORLD_ID_CONTRACT || "0x1234567890123456789012345678901234567890";
-  const usdcAddress = process.env.USDC_TOKEN_ADDRESS || "0x1234567890123456789012345678901234567890";
 
-  // Deploy the contract
-  const quizGame = await QuizGame.deploy(worldIdAddress, usdcAddress);
-
+  // Deploy the QuizGame contract (ETH payments)
+  const quizGame = await QuizGame.deploy(worldIdAddress);
   await quizGame.waitForDeployment();
-
-  const address = await quizGame.getAddress();
-  console.log(`QuizGame deployed to: ${address}`);
-
-  // Skip waiting for confirmations in local development
-  console.log("Deployment transaction completed");
+  const quizGameAddress = await quizGame.getAddress();
+  console.log(`QuizGame deployed to: ${quizGameAddress}`);
 
   console.log("Deployment completed successfully!");
-  console.log(`Contract address: ${address}`);
+  console.log(`QuizGame address: ${quizGameAddress}`);
   console.log(`World ID contract: ${worldIdAddress}`);
-  console.log(`USDC token: ${usdcAddress}`);
+  console.log(`Entry fee: 0.002 ETH`);
 
   // Save deployment info
   const deploymentInfo = {
     network: "deployed",
-    contractAddress: address,
+    contractAddress: quizGameAddress,
     worldIdAddress: worldIdAddress,
-    usdcAddress: usdcAddress,
     deployer: await (await ethers.provider.getSigner()).getAddress(),
     timestamp: new Date().toISOString(),
   };
