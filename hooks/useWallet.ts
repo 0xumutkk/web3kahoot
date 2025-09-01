@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
+import { toast } from 'react-hot-toast';
+import { initializeContract } from '../lib/contract';
 
 export interface WalletState {
   isConnected: boolean
@@ -21,7 +23,7 @@ export function useWallet() {
   })
 
   useEffect(() => {
-    checkConnection()
+    // checkConnection() // We will no longer check connection automatically on load
     
     if (typeof window.ethereum !== 'undefined') {
       window.ethereum.on('accountsChanged', handleAccountsChanged)
@@ -54,12 +56,23 @@ export function useWallet() {
         
         setState({
           isConnected: true,
-          account: accounts[0].address,
+          account: accounts[0].address, // This method returns an array of Account objects, not strings
           provider,
           signer,
           chainId: Number(network.chainId),
           error: null
         })
+        // Also initialize contract on existing connection
+        await initializeContract();
+      } else {
+        setState({
+          isConnected: false,
+          account: null,
+          provider: null,
+          signer: null,
+          chainId: null,
+          error: null
+        });
       }
     } catch (error) {
       console.error('Error checking connection:', error)
@@ -74,10 +87,12 @@ export function useWallet() {
     }
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      const accounts = await provider.send('eth_requestAccounts', [])
+      // Directly request accounts using window.ethereum, bypassing ethers' provider.send for this step
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       
       if (accounts.length > 0) {
+        // Once connected, create the ethers provider to manage state
+        const provider = new ethers.BrowserProvider(window.ethereum)
         const signer = await provider.getSigner()
         const network = await provider.getNetwork()
         
@@ -89,6 +104,11 @@ export function useWallet() {
           chainId: Number(network.chainId),
           error: null
         })
+
+        // Initialize contract after connecting
+        await initializeContract();
+
+        toast.success("Wallet connected successfully!");
       }
     } catch (error) {
       console.error('Error connecting wallet:', error)
@@ -196,6 +216,17 @@ export function useWallet() {
           },
           rpcUrls: ['https://rpc-mumbai.maticvigil.com'],
           blockExplorerUrls: ['https://mumbai.polygonscan.com']
+        }
+      case 31337: // Hardhat Localhost
+        return {
+          chainId: '0x7a69',
+          chainName: 'Hardhat Localhost',
+          nativeCurrency: {
+            name: 'Ethereum',
+            symbol: 'ETH',
+            decimals: 18
+          },
+          rpcUrls: ['http://127.0.0.1:8545'],
         }
       default:
         return null

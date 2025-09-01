@@ -6,11 +6,10 @@ async function main() {
   console.log("Checking balances...");
 
   // Contract address
-  const contractAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+  const contractAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
   
   // Get the contract
-  const QuizGame = await ethers.getContractFactory("QuizGame");
-  const quizGame = QuizGame.attach(contractAddress);
+  const quizGame = await ethers.getContractAt("QuizGame", contractAddress);
 
   // Get contract owner
   const owner = await quizGame.owner();
@@ -25,9 +24,10 @@ async function main() {
   console.log(`Owner Balance: ${ethers.formatEther(ownerBalance)} ETH`);
 
   // Get platform fees (if function exists)
+  let platformFeesBigInt = BigInt(0);
   try {
-    const platformFees = await quizGame.platformFees();
-    console.log(`Platform Fees: ${ethers.formatEther(platformFees)} ETH`);
+    platformFeesBigInt = await quizGame.platformFeeBalance();
+    console.log(`Platform Fees: ${ethers.formatEther(platformFeesBigInt)} ETH`);
   } catch (error) {
     console.log(`Platform Fees: Function not available`);
   }
@@ -49,10 +49,10 @@ async function main() {
   }
 
   console.log("\n💰 Fee Summary:");
-  console.log(`- Your payment: 0.1 ETH`);
   console.log(`- Contract holds: ${ethers.formatEther(contractBalance)} ETH`);
-  console.log(`- Platform fees: Function not available`);
-  console.log(`- Prize pool: ${ethers.formatEther(contractBalance)} ETH`);
+  console.log(`- Platform fees: ${ethers.formatEther(platformFeesBigInt)} ETH`);
+  const prizePool = contractBalance - platformFeesBigInt;
+  console.log(`- Prize pool: ${ethers.formatEther(prizePool)} ETH`);
 }
 
 main()

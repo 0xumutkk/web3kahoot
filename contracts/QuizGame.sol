@@ -354,13 +354,69 @@ contract QuizGame is ReentrancyGuard, Ownable {
         return currentCategoryId;
     }
     
+    // Bu fonksiyon, bir kategori için mevcut veya yeni bir oyun bularak oyuncuyu ekler ve ödemeyi alır.
+    function joinOrCreateGame(uint256 categoryId) external payable nonReentrant {
+        require(categories[categoryId].isActive, "Category is not active");
+        require(msg.value == ENTRY_FEE, "Incorrect entry fee amount sent");
+
+        uint256 gameIdToJoin = _findOrCreateGame(categoryId);
+
+        Game storage game = games[gameIdToJoin];
+
+        require(block.timestamp < game.endTime, "Game lobby is closed");
+        require(game.playerCount < MAX_PLAYERS, "Game is full");
+        require(game.players[msg.sender].playerAddress == address(0), "Player already joined this game");
+
+        game.players[msg.sender] = Player({
+            playerAddress: msg.sender,
+            score: 0,
+            finishTime: 0,
+            hasSubmitted: false,
+            hasWithdrawn: false,
+            preferredQuizType: QuizType.TEXT // Varsayılan olarak TEXT
+        });
+
+        game.playerAddresses.push(msg.sender);
+        game.playerCount++;
+        game.totalPrizePool += msg.value;
+
+        emit PlayerJoined(gameIdToJoin, msg.sender, QuizType.TEXT);
+
+        if (game.playerCount >= MIN_PLAYERS && !game.isStarted) {
+            _startQuiz(gameIdToJoin);
+        }
+    }
+
+    function _findOrCreateGame(uint256 categoryId) internal returns (uint256) {
+        // Bu kategoride aktif ve dolmamış bir oyun ara
+        for (uint256 i = currentGameId; i > 0; i--) {
+            if (games[i].categoryId == categoryId && games[i].isActive && !games[i].isStarted && games[i].playerCount < MAX_PLAYERS) {
+                return i;
+            }
+        }
+
+        // Aktif oyun bulunamazsa yeni bir tane oluştur
+        currentGameId++;
+        Game storage game = games[currentGameId];
+        game.gameId = currentGameId;
+        game.categoryId = categoryId;
+        game.quizType = QuizType.TEXT; // Varsayılan olarak TEXT
+        game.startTime = block.timestamp;
+        game.endTime = block.timestamp + ROOM_WAIT_TIME; // Lobi bekleme süresi
+        game.isActive = true;
+        game.isStarted = false;
+        
+        emit GameStarted(currentGameId, game.startTime, game.quizType);
+        return currentGameId;
+    }
+    
     // Basit entry fee ödeme fonksiyonu
     function payEntryFee(uint256 categoryId) external payable {
-        require(categories[categoryId].isActive, "Category not active");
-        require(msg.value == ENTRY_FEE, "Incorrect entry fee amount");
+        require(categoryId > 0 && categoryId <= currentCategoryId, "Invalid category ID");
+        require(categories[categoryId].isActive, "Category is not active");
+        require(msg.value == ENTRY_FEE, "Incorrect entry fee amount sent");
         
-        // Entry fee'yi contract'a al
-        // Bu fonksiyon sadece fee alır, oyun başlatmaz
-        emit PlayerJoined(0, msg.sender, QuizType.TEXT); // Event log için
+        // Bu fonksiyon sadece fee alır, oyun başlatmaz veya oyuncu eklemez.
+        // Gerçek oyun mantığı için `enterGame` kullanılmalıdır.
     }
 }

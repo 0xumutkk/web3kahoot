@@ -8,21 +8,14 @@ import {
   Brain, 
   Globe, 
   Music, 
-  Gamepad2, 
-  Palette, 
-  BookOpen, 
-  Trophy,
-  Users,
-  Clock,
-  DollarSign,
-  Type,
-  Image as ImageIcon,
   Shield,
   CheckCircle
 } from 'lucide-react'
-import { initializeContract, QuizType, getCategoryInfo, getCategoryCount } from '../../lib/contract'
 import { useWorldId } from '../../hooks/useWorldId'
 import { WorldIdWidget } from '../../components/WorldIdWidget'
+import { toast } from 'react-hot-toast';
+import { useWallet } from '../../hooks/useWallet'
+import { joinOrCreateGame } from '../../lib/contract'
 
 interface Category {
   id: number
@@ -35,10 +28,9 @@ interface Category {
   prizePool: number // ETH cinsinden
   icon: React.ReactNode
   color: string
-  supportsImageReveal: boolean
 }
 
-const categories: Category[] = [
+const categoriesData: Category[] = [
   {
     id: 1,
     name: "Technology & AI",
@@ -50,7 +42,6 @@ const categories: Category[] = [
     prizePool: 0.01,
     icon: <Zap className="w-8 h-8" />,
     color: "from-blue-500 to-cyan-500",
-    supportsImageReveal: true
   },
   {
     id: 2,
@@ -63,7 +54,6 @@ const categories: Category[] = [
     prizePool: 0.01,
     icon: <Brain className="w-8 h-8" />,
     color: "from-purple-500 to-pink-500",
-    supportsImageReveal: true
   },
   {
     id: 3,
@@ -74,9 +64,8 @@ const categories: Category[] = [
     playersWaiting: 12,
     entryFee: 0.002,
     prizePool: 0.01,
-    icon: <BookOpen className="w-8 h-8" />,
+    icon: <Globe className="w-8 h-8" />,
     color: "from-amber-500 to-orange-500",
-    supportsImageReveal: true
   },
   {
     id: 4,
@@ -89,7 +78,6 @@ const categories: Category[] = [
     prizePool: 0.01,
     icon: <Globe className="w-8 h-8" />,
     color: "from-green-500 to-emerald-500",
-    supportsImageReveal: true
   },
   {
     id: 5,
@@ -102,60 +90,40 @@ const categories: Category[] = [
     prizePool: 0.01,
     icon: <Music className="w-8 h-8" />,
     color: "from-pink-500 to-rose-500",
-    supportsImageReveal: true
   }
 ]
 
 export default function CategoriesPage() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isConnected, setIsConnected] = useState(false)
-  const [account, setAccount] = useState('')
-          const { isVerified: worldIdVerified, verificationData, error: worldIdError, handleVerificationSuccess, handleVerificationError } = useWorldId()
+  const { isConnected, account, chainId, connect: connectWallet, switchNetwork, error: walletError } = useWallet()
+  const { isVerified: worldIdVerified, verificationData, error: worldIdError, handleVerificationSuccess, handleVerificationError } = useWorldId()
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  
-  // World ID demo state (for backward compatibility)
+  const [isPaying, setIsPaying] = useState(false)
 
+  const HARDHAT_CHAIN_ID = 31337;
 
   useEffect(() => {
-    checkConnection()
-  }, [])
-
-  const checkConnection = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        await initializeContract()
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-        setAccount(accounts[0])
-        setIsConnected(true)
-      } catch (error) {
-        console.error('Error checking connection:', error)
-      }
+    if (walletError) {
+      toast.error(walletError);
     }
-  }
-
-  const connectWallet = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        await initializeContract()
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-        setAccount(accounts[0])
-        setIsConnected(true)
-      } catch (error) {
-        console.error('Failed to connect wallet:', error)
-      }
-    } else {
-      alert('Please install MetaMask')
-    }
-  }
-
+  }, [walletError]);
 
 
   const handleCategorySelect = async (category: Category) => {
     if (!isConnected) {
-      alert('Please connect your wallet first')
+      toast.error('Please connect your wallet first')
       return
+    }
+
+    if (chainId !== HARDHAT_CHAIN_ID) {
+      try {
+        await switchNetwork(HARDHAT_CHAIN_ID);
+        toast.success("Switched to Hardhat Network!");
+      } catch (error) {
+        toast.error("Failed to switch to Hardhat network. Please do it manually.");
+        return;
+      }
     }
 
     setSelectedCategory(category)
@@ -165,48 +133,34 @@ export default function CategoriesPage() {
   const handlePayment = async () => {
     if (!selectedCategory || !isConnected) return
 
-    setIsLoading(true)
+    if (chainId !== HARDHAT_CHAIN_ID) {
+      toast.error("Please switch to the Hardhat network before paying.");
+      return;
+    }
+
+    setIsPaying(true)
+    const toastId = toast.loading('Preparing transaction...');
     
     try {
       console.log(`Paying ${selectedCategory.entryFee} ETH for ${selectedCategory.name} - Mixed Quiz`)
       
-      // Gerçek smart contract entegrasyonu
-      const { ethers } = await import('ethers')
-      const provider = new ethers.BrowserProvider(window.ethereum)
-      const signer = await provider.getSigner()
+      toast.loading('Please confirm the transaction in your wallet.', { id: toastId });
+
+      // Call the robust, centralized function from lib/contract.ts
+      const gameId = await joinOrCreateGame(selectedCategory.id);
       
-      // Contract address ve ABI'yi import et
-      const contractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' // Yeni deploy edilen address
-      const contractABI = [
-        "function payEntryFee(uint256 categoryId) external payable",
-        "function getEntryFee(uint256 categoryId) external view returns (uint256)",
-        "function getPrizePool(uint256 categoryId) external view returns (uint256)"
-      ]
+      console.log('Transaction confirmed, received game ID:', gameId);
       
-      const contract = new ethers.Contract(contractAddress, contractABI, signer)
+      toast.success('Payment successful! Joining the lobby...', { id: toastId });
       
-      // Entry fee ödemesi
-      const entryFeeWei = ethers.parseEther(selectedCategory.entryFee.toString())
-      const tx = await contract.payEntryFee(selectedCategory.id, { value: entryFeeWei })
+      router.push(`/lobby/${gameId}`)
       
-      console.log('Transaction sent:', tx.hash)
-      
-      // Transaction'ın onaylanmasını bekle
-      const receipt = await tx.wait()
-      console.log('Transaction confirmed:', receipt)
-      
-      // Show success message
-      alert(`Payment successful! You paid ${selectedCategory.entryFee} ETH for ${selectedCategory.name}`)
-      
-      // Generate game ID and navigate to lobby
-      const gameId = Math.floor(Math.random() * 1000) + 1
-      router.push(`/lobby/${gameId}?category=${selectedCategory.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}&quizType=mixed`)
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment failed:', error)
-      alert(`Payment failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error.reason || (error.message ? error.message.split('(')[0] : 'Unknown error');
+      toast.error(`Payment failed: ${errorMessage}`, { id: toastId });
     } finally {
-      setIsLoading(false)
+      setIsPaying(false)
       setShowPaymentModal(false)
     }
   }
@@ -244,7 +198,7 @@ export default function CategoriesPage() {
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-md mx-auto">
             <div className="flex items-center justify-center space-x-2">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-green-800">Connected: {account.slice(0, 6)}...{account.slice(-4)}</span>
+              <span className="text-green-800">Connected: {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : ''}</span>
             </div>
           </div>
         )}
@@ -291,16 +245,15 @@ export default function CategoriesPage() {
 
       {/* Categories Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-        {categories.map((category, index) => (
+        {categoriesData.map((category, index) => (
           <motion.div
             key={category.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer group"
-            onClick={() => handleCategorySelect(category)}
+            className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 flex flex-col"
           >
-            <div className="text-center">
+            <div className="text-center flex-grow">
               {/* Category Icon */}
               <div className={`w-16 h-16 bg-gradient-to-br ${category.color} rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300`}>
                 <div className="text-white">
@@ -315,61 +268,31 @@ export default function CategoriesPage() {
               {/* Quiz Type Support */}
               <div className="flex justify-center space-x-2 mb-4">
                 <div className="flex items-center space-x-1 text-xs text-blue-600">
-                  <Type className="w-3 h-3" />
-                  <span>MIXED QUIZ</span>
+                  <span>MIXED QUIZ:</span>
                 </div>
                 <div className="flex items-center space-x-1 text-xs text-purple-600">
-                  <ImageIcon className="w-3 h-3" />
+    
                   <span>TEXT + IMAGE</span>
                 </div>
               </div>
               
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="text-center">
-                  <div className="text-sm font-bold text-primary-600">{category.questionCount}</div>
-                  <div className="text-xs text-gray-500">Questions</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm font-bold text-secondary-600">{category.activeGames}</div>
-                  <div className="text-xs text-gray-500">Active</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm font-bold text-success-600">{category.playersWaiting}</div>
-                  <div className="text-xs text-gray-500">Waiting</div>
-                </div>
-              </div>
-              
-              {/* Payment Info */}
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Entry Fee:</span>
-                  <span className="font-bold text-primary-600">{category.entryFee} ETH</span>
-                </div>
-                <div className="flex justify-between items-center text-sm mt-1">
-                  <span className="text-gray-600">Prize Pool:</span>
-                  <span className="font-bold text-success-600">{category.prizePool} ETH</span>
-                </div>
-              </div>
+              {/* Stats and Payment Info will go here */}
               
               {/* Join Button */}
               <button
-                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-300 ${
+                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all duration-300 mt-auto ${
                   !isConnected
-                    ? 'bg-gray-400 cursor-not-allowed'
+                    ? 'bg-gray-300 hover:bg-gray-400'
                     : `bg-gradient-to-r ${category.color} hover:shadow-lg text-white`
                 }`}
-                disabled={!isConnected}
+                onClick={() => isConnected ? handleCategorySelect(category) : connectWallet()}
               >
-                {!isConnected ? 'Connect Wallet' : 'Select Quiz Type'}
+                {!isConnected ? 'Connect Wallet' : 'Join Quiz'}
               </button>
             </div>
           </motion.div>
         ))}
       </div>
-
-      {/* Quiz Type Selection Modal */}
-
 
       {/* Payment Modal */}
       {showPaymentModal && selectedCategory && (
@@ -410,16 +333,16 @@ export default function CategoriesPage() {
               <button
                 onClick={() => setShowPaymentModal(false)}
                 className="flex-1 py-3 px-4 bg-gray-200 text-gray-800 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
-                disabled={isLoading}
+                disabled={isPaying}
               >
                 Cancel
               </button>
               <button
                 onClick={handlePayment}
                 className="flex-1 py-3 px-4 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50"
-                disabled={isLoading}
+                disabled={isPaying}
               >
-                {isLoading ? (
+                {isPaying ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                     Processing...

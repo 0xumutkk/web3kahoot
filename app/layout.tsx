@@ -1,14 +1,13 @@
-import React from 'react'
+import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { MiniKitProvider } from '@worldcoin/minikit-js/minikit-provider'
-import './globals.css'
+import { Providers } from '../components/Providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Kahoot World Chain Mini App',
-  description: 'A Kahoot-like quiz game built on World Chain with World ID verification',
+  title: 'Kahoot! World Chain Mini App',
+  description: 'A decentralized quiz game on World Chain',
 }
 
 export default function RootLayout({
@@ -17,14 +16,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <MiniKitProvider>
-        <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Providers>
           <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
             {children}
           </div>
-        </body>
-      </MiniKitProvider>
+        </Providers>
+      </body>
     </html>
   )
 }

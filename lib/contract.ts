@@ -1,8 +1,9 @@
 import { ethers } from 'ethers'
 import { QuizGame__factory, QuizGame } from '../typechain-types'
+import contractAddress from './contract-address.json'
 
 // Contract addresses
-const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+const CONTRACT_ADDRESS = contractAddress.contractAddress
 const WORLD_ID_ADDRESS = '0x1234567890123456789012345678901234567890'
 
 // Quiz types - must match the contract enum
@@ -54,6 +55,43 @@ export async function initializeContract() {
     throw error
   }
 }
+
+/**
+ * Calls the joinOrCreateGame function on the smart contract,
+ * waits for the transaction to be mined, parses the logs to find
+ * the game ID, and returns it.
+ * @param categoryId The ID of the category to join.
+ * @returns The ID of the game that was joined or created.
+ */
+export async function joinOrCreateGame(categoryId: number): Promise<string> {
+  const contract = getContract()
+  const entryFee = ethers.parseEther('0.002')
+
+  const tx = await contract.joinOrCreateGame(categoryId, { value: entryFee })
+  const receipt = await tx.wait()
+
+  if (!receipt) {
+    throw new Error('Transaction failed to confirm.')
+  }
+
+  // Parse the logs to find the GameStarted or PlayerJoined event
+  for (const log of receipt.logs) {
+    try {
+      const parsedLog = contract.interface.parseLog(log)
+      if (parsedLog && (parsedLog.name === 'GameStarted' || parsedLog.name === 'PlayerJoined')) {
+        const gameId = parsedLog.args.gameId
+        if (gameId !== undefined) {
+          return gameId.toString()
+        }
+      }
+    } catch (e) {
+      // This log might not be from our contract, ignore parsing errors
+    }
+  }
+
+  throw new Error('Could not determine the Game ID from the transaction.')
+}
+
 
 // Switch to Hardhat network
 async function switchToHardhatNetwork() {
@@ -112,6 +150,8 @@ export async function startNewGame(categoryId: number, quizType: QuizType) {
   return tx
 }
 
+// THIS FUNCTION IS DEPRECATED AND WILL BE REMOVED
+/*
 export async function enterGame(
   gameId: number,
   preferredQuizType: QuizType,
@@ -133,6 +173,7 @@ export async function enterGame(
   await tx.wait()
   return tx
 }
+*/
 
 export async function submitAnswers(
   gameId: number,

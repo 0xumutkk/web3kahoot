@@ -1,6 +1,9 @@
 // @ts-ignore
 import pkg from 'hardhat';
 const { ethers } = pkg;
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 async function main() {
   console.log("Deploying QuizGame contract...");
@@ -18,20 +21,18 @@ async function main() {
   console.log(`QuizGame deployed to: ${quizGameAddress}`);
 
   console.log("Deployment completed successfully!");
-  console.log(`QuizGame address: ${quizGameAddress}`);
-  console.log(`World ID contract: ${worldIdAddress}`);
-  console.log(`Entry fee: 0.002 ETH`);
-
-  // Save deployment info
+  
+  // Save the contract address to a file in the lib directory
   const deploymentInfo = {
-    network: "deployed",
-    contractAddress: quizGameAddress,
-    worldIdAddress: worldIdAddress,
-    deployer: await (await ethers.provider.getSigner()).getAddress(),
-    timestamp: new Date().toISOString(),
+    contractAddress: quizGameAddress
   };
+  
+  // ES Module-safe way to get the directory name
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const filePath = path.join(__dirname, '..', 'lib', 'contract-address.json');
+  fs.writeFileSync(filePath, JSON.stringify(deploymentInfo, null, 2));
 
-  console.log("Deployment info:", JSON.stringify(deploymentInfo, null, 2));
+  console.log(`Contract address saved to ${filePath}`);
 }
 
 main()
